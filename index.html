@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pomodoro 25/5 • Mushroom Grove 🍄 / Gothic Web 🕷️</title>
+  <style>
+    :root{ --radius:22px; --shadow:0 18px 60px rgba(0,0,0,.28); --border:1px solid var(--stroke); --good:#2bd1a4; --warn:#ff6b6b; }
+
+    body.theme-light{
+      --bg1:#f6fff2; --bg2:#e9fbef; --card:#ffffffe6; --stroke:#d8f2da; --text:#1e261c; --muted:#5f6f5f;
+      --accent:#e23b3b;   
+      --accent-2:#2cb67d; 
+      --accent-3:#f59e0b; 
+      --grad:
+        radial-gradient(1200px 700px at 15% 8%, #fff4e6 0%, transparent 60%),
+        radial-gradient(1200px 700px at 90% 92%, #e7ffe9 0%, transparent 60%),
+        linear-gradient(160deg,#f6fff2 0%, #ecfff6 60%, #f4faff 100%);
+      --spore:#fff7d6; --moss:#b9fbc0; --cap:#ff6363; --gill:#ffe9e9;
+      --font-ui: system-ui, -apple-system, Segoe UI, Roboto, Arial; 
+      --font-display: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    body.theme-dark{
+      --bg1:#08070b; --bg2:#0b0a12; --card:#0f0e17e6; --stroke:#231b2f; --text:#efe9fb; --muted:#b9b0cf;
+      --accent:#a60e25; --accent-2:#6d28d9; --accent-3:#eab308; 
+      --grad:
+        radial-gradient(1200px 700px at 12% 18%, #1a1424 0%, transparent 55%),
+        radial-gradient(1000px 700px at 85% 88%, #270a16 0%, transparent 55%),
+        linear-gradient(160deg, #08070b, #0b0a12 70%);
+      --spore:#3a0e17; --moss:#1a2733; --cap:#5a0b13; --gill:#2a0a0d;
+      --font-ui: Georgia, "Times New Roman", serif; 
+      --font-display: Georgia, "Times New Roman", serif;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; background:var(--grad); color:var(--text);
+         font-family: var(--font-ui); display:grid; place-items:center; overflow:hidden}
+    .wrap{width:min(980px,94vw); position:relative; padding-bottom:160px}
+
+    header{display:flex;align-items:center;justify-content:space-between;margin:28px 0; position:relative; z-index:3}
+    h1{font-family: var(--font-display); font-size:clamp(24px,4.2vw,36px);letter-spacing:.6px;margin:0;display:flex;gap:12px;align-items:center}
+    .tag{opacity:.9;font-size:13px}
+
+    .theme-toggle{display:flex;gap:12px;align-items:center}
+    .btn{background:transparent;border:var(--border);color:var(--text);padding:10px 14px;border-radius:14px;font-weight:800;cursor:pointer}
+    .btn:hover{box-shadow:0 0 0 3px rgba(0,0,0,.05) inset}
+
+    /* Cards */
+    .card{background:var(--card);backdrop-filter: blur(12px); border:var(--border);box-shadow:var(--shadow);border-radius:var(--radius);padding:24px; position:relative; z-index:3}
+    .timer-face{display:grid;gap:16px;place-items:center}
+
+    .time{font-variant-numeric:tabular-nums; font-size: clamp(52px, 12vw, 120px); font-weight: 900; letter-spacing: 1.5px}
+    .mode{font-size:14px; letter-spacing:.7px; opacity:.95}
+
+    .progress{height:14px;width:100%;background:color-mix(in oklab, var(--stroke) 65%, transparent);border-radius:999px;overflow:hidden;border:var(--border); position:relative}
+    .bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent-3));transition:width .2s ease; box-shadow:0 6px 18px color-mix(in oklab, var(--accent) 30%, transparent)}
+
+    .controls{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:6px}
+    .controls .btn.primary{background:linear-gradient(180deg,color-mix(in oklab, var(--accent) 80%, white), var(--accent)); color:white; border-color:transparent}
+    .controls .btn.danger{background:linear-gradient(180deg,color-mix(in oklab, var(--warn) 80%, white), var(--warn)); color:white; border-color:transparent}
+
+    .grid{display:grid;gap:18px;grid-template-columns: 1fr;}
+    @media(min-width:860px){.grid{grid-template-columns: 1.2fr .8fr}}
+
+    .prefs{display:grid;gap:14px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .row label{font-size:14px;opacity:.95}
+    .row input[type="number"]{width:96px;padding:10px 12px;background:transparent;border:var(--border);border-radius:12px;color:var(--text);font-weight:700}
+    .switch{display:flex;align-items:center;gap:10px}
+    .switch input{accent-color:var(--accent)}
+    .meta{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:10px;color:var(--muted);font-size:13px}
+    .badge{padding:6px 10px;border:var(--border);border-radius:999px;background:color-mix(in oklab, var(--card) 90%, transparent); font-weight:800}
+    a{color:var(--accent)}
+
+    .deco{position:absolute; inset:-40px -40px auto auto; pointer-events:none; filter:saturate(1.05)}
+    .deco::before, .deco::after{ content:""; position:absolute; border-radius:999px; opacity:.6; mix-blend-mode:overlay; }
+    body.theme-light .deco::before{ width:220px; height:220px; background:#eafff2; box-shadow:0 0 180px 70px #eafff2 }
+    body.theme-light .deco::after{  width:280px; height:280px; background:#fff0e6; box-shadow:0 0 180px 70px #fff0e6; left:-150px; top:80px }
+    body.theme-dark .deco::before{  width:260px; height:260px; background:#3f0d12; box-shadow:0 0 200px 80px #3f0d12 }
+    body.theme-dark .deco::after{   width:220px; height:220px; background:#1b1033; box-shadow:0 0 200px 80px #1b1033; left:-100px; top:90px }
+
+    .grove{position:absolute; left:0; right:0; bottom:-10px; height:230px; pointer-events:none; z-index:0}
+    body.theme-light .grove{display:block}
+    body.theme-dark .grove{display:none}
+    .grove svg{width:100%; height:100%; opacity:.98; filter:drop-shadow(0 10px 24px rgba(34,197,94,.18))}
+
+    .spores{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:1}
+    .spores i{position:absolute; width:6px; height:6px; background:#fff; border-radius:50%; opacity:.75; filter:blur(0.4px); box-shadow:0 0 10px #ffffffaa; animation: float 9s linear infinite}
+    @keyframes float{ from{ transform:translateY(40px) scale(.8); opacity:.0 } 20%{opacity:.9} to{ transform:translateY(-120vh) scale(1.1); opacity:0 } }
+
+    .webs{position:absolute; inset:0; pointer-events:none; z-index:1}
+    body.theme-dark .webs{display:block}
+    body.theme-light .webs{display:none}
+    .web{position:absolute; width:360px; height:360px; opacity:.22}
+    .web.top-left{ left:-20px; top:-20px; transform:scale(1)}
+    .web.top-right{ right:-20px; top:-20px; transform:scaleX(-1)}
+    .web.bottom-left{ left:-20px; bottom:-20px; transform:scaleY(-1)}
+    .web.bottom-right{ right:-20px; bottom:-20px; transform:scale(-1)}
+
+    .spider{position:absolute; width:14px; height:14px; left:50%; top:-20px; transform:translateX(-50%); z-index:2; color:#eee}
+    .spider::before{content:""; position:absolute; left:50%; top:-160px; width:1px; height:160px; background:linear-gradient(#999, transparent); transform:translateX(-50%)}
+    .spider svg{display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+    body.theme-dark .spider{animation: descend 8s ease-in-out infinite alternate}
+    @keyframes descend{ 0%{ top:-20px } 100%{ top:120px } }
+  </style>
+</head>
+<body class="theme-dark">
+  <div class="wrap">
+    <div class="deco"></div>
+
+    <div class="spores" id="spores"></div>
+
+    <div class="webs" aria-hidden="true">
+      <svg class="web top-left" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g stroke="#c4b5fd" stroke-width=".8" fill="none">
+          <path d="M0,0 L100,0 L100,100"/>
+          <path d="M0,0 C40,0 60,20 100,20"/>
+          <path d="M0,0 C30,0 70,40 100,40"/>
+          <path d="M0,0 C20,0 80,60 100,60"/>
+          <path d="M0,0 C10,0 90,80 100,80"/>
+        </g>
+      </svg>
+      <svg class="web top-right" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g stroke="#c4b5fd" stroke-width=".8" fill="none">
+          <path d="M0,0 L100,0 L100,100"/>
+          <path d="M0,0 C40,0 60,20 100,20"/>
+          <path d="M0,0 C30,0 70,40 100,40"/>
+          <path d="M0,0 C20,0 80,60 100,60"/>
+          <path d="M0,0 C10,0 90,80 100,80"/>
+        </g>
+      </svg>
+      <svg class="web bottom-left" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g stroke="#c4b5fd" stroke-width=".8" fill="none">
+          <path d="M0,0 L100,0 L100,100"/>
+          <path d="M0,0 C40,0 60,20 100,20"/>
+          <path d="M0,0 C30,0 70,40 100,40"/>
+          <path d="M0,0 C20,0 80,60 100,60"/>
+          <path d="M0,0 C10,0 90,80 100,80"/>
+        </g>
+      </svg>
+      <svg class="web bottom-right" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g stroke="#c4b5fd" stroke-width=".8" fill="none">
+          <path d="M0,0 L100,0 L100,100"/>
+          <path d="M0,0 C40,0 60,20 100,20"/>
+          <path d="M0,0 C30,0 70,40 100,40"/>
+          <path d="M0,0 C20,0 80,60 100,60"/>
+          <path d="M0,0 C10,0 90,80 100,80"/>
+        </g>
+      </svg>
+      <div class="spider" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2 v4 M12 18 v4 M2 12 h4 M18 12 h4 M5 5 l3 3 M16 16 l3 3 M5 19 l3-3 M16 8 l3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+    </div>
+
+    <header>
+      <h1>
+        <span id="themeIcon">🕷️</span>
+        Pomodoro 25/5 <span class="tag">• mushroom grove ↔ gothic web</span>
+      </h1>
+      <div class="theme-toggle">
+        <button id="toggleTheme" class="btn" title="Toggle theme">🌿 Light / 🕯️ Dark</button>
+        <div class="meta">
+          <span class="badge">⌚️ <span id="cycles">0</span> pomodoros</span>
+          <span class="badge">🔔 <span id="perm">—</span></span>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <div class="timer-face">
+          <div class="mode" id="mode">Work</div>
+          <div class="time" id="time">25:00</div>
+          <div class="progress"><div class="bar" id="bar"></div></div>
+          <div class="controls">
+            <button id="start" class="btn primary">Start</button>
+            <button id="pause" class="btn">Pause / Resume</button>
+            <button id="reset" class="btn danger">Reset</button>
+            <button id="skip" class="btn">Skip Break</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="prefs">
+          <div class="row"><label>Work minutes</label><input id="workM" type="number" min="1" max="120" value="25"></div>
+          <div class="row"><label>Short break (min)</label><input id="breakM" type="number" min="1" max="60" value="5"></div>
+          <div class="row"><label>Long break (min)</label><input id="longM" type="number" min="5" max="60" value="15"></div>
+          <div class="row"><label>Pomodoros until long break</label><input id="tillLong" type="number" min="2" max="12" value="4"></div>
+          <div class="row switch"><input id="notify" type="checkbox" checked><label for="notify">Enable notifications</label></div>
+          <div class="row switch"><input id="sound" type="checkbox" checked><label for="sound">Sound alert</label></div>
+          <div class="row"><label>Volume</label><input id="vol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
+        </div>
+      </aside>
+    </div>
+
+    <p class="meta" style="justify-content:flex-start;margin-top:10px; position:relative; z-index:3">
+      Shortcuts: <strong>Space</strong> = Pause/Resume, <strong>R</strong> = Reset, <strong>S</strong> = Skip, <strong>T</strong> = Theme
+    </p>
+
+    <div class="grove" aria-hidden="true">
+      <svg viewBox="0 0 1200 230" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="grassG" x1="0" x2="1">
+            <stop offset="0" stop-color="#34d399"/>
+            <stop offset="1" stop-color="#22c55e"/>
+          </linearGradient>
+        </defs>
+        <path d="M0 170 C 200 130, 380 200, 600 160 S 1000 130, 1200 180" fill="none" stroke="url(#grassG)" stroke-width="10" stroke-linecap="round"/>
+        <g fill="#14532d" opacity=".9">
+          <path d="M80 150 l20 -40 l20 40 z"/>
+          <rect x="98" y="150" width="4" height="26" rx="2" />
+          <path d="M260 160 l22 -44 l22 44 z"/>
+          <rect x="280" y="160" width="4" height="26" rx="2" />
+          <path d="M980 155 l18 -36 l18 36 z"/>
+          <rect x="996" y="155" width="4" height="24" rx="2" />
+        </g>
+        <g>
+          <circle cx="210" cy="180" r="5" fill="#f472b6"/>
+          <circle cx="210" cy="180" r="2" fill="#fff"/>
+          <circle cx="760" cy="170" r="5" fill="#f59e0b"/>
+          <circle cx="760" cy="170" r="2" fill="#fff"/>
+        </g>
+        <g stroke="#14532d" stroke-width="2" opacity=".95">
+          <g>
+            <path d="M140 160 q20 -30 40 0 q-20 6 -40 0 z" fill="#ff4d4d"/>
+            <ellipse cx="160" cy="150" rx="3" ry="2" fill="#fff"/>
+            <ellipse cx="170" cy="155" rx="3" ry="2" fill="#fff"/>
+            <ellipse cx="150" cy="155" rx="2.8" ry="2" fill="#fff"/>
+            <rect x="158" y="160" width="4" height="26" rx="2" fill="#ffe9e9"/>
+          </g>
+          <g>
+            <path d="M320 190 q24 -28 48 0 q-24 6 -48 0 z" fill="#ff4d4d"/>
+            <ellipse cx="340" cy="182" rx="3" ry="2" fill="#fff"/>
+            <ellipse cx="356" cy="186" rx="3" ry="2" fill="#fff"/>
+            <rect x="338" y="190" width="4" height="24" rx="2" fill="#ffe9e9"/>
+          </g>
+          <g>
+            <path d="M520 165 q18 -26 36 0 q-18 6 -36 0 z" fill="#ff4d4d"/>
+            <ellipse cx="535" cy="158" rx="2.6" ry="1.8" fill="#fff"/>
+            <ellipse cx="548" cy="161" rx="2.6" ry="1.8" fill="#fff"/>
+            <rect x="536" y="165" width="3.5" height="22" rx="1.8" fill="#ffe9e9"/>
+          </g>
+          <g>
+            <path d="M880 175 q22 -30 44 0 q-22 6 -44 0 z" fill="#ff4d4d"/>
+            <ellipse cx="895" cy="168" rx="3" ry="2" fill="#fff"/>
+            <ellipse cx="912" cy="171" rx="3" ry="2" fill="#fff"/>
+            <rect x="898" y="175" width="4" height="24" rx="2" fill="#ffe9e9"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <script>
+  const $ = (id)=>document.getElementById(id);
+  const timeEl = $('time'), modeEl = $('mode'), barEl = $('bar');
+  const startBtn = $('start'), pauseBtn = $('pause'), resetBtn = $('reset'), skipBtn = $('skip');
+  const workM = $('workM'), breakM = $('breakM'), longM = $('longM'), tillLong = $('tillLong');
+  const notify = $('notify'), sound = $('sound'), vol = $('vol');
+  const cyclesEl = $('cycles'), permEl = $('perm');
+  const toggleThemeBtn = $('toggleTheme');
+  const themeIcon = $('themeIcon');
+
+  let audioCtx, ticker, running=false, mode='work', cycle=0, target=0, totalMs=0, remaining=0;
+
+  const fmt = (ms)=>{ const s=Math.max(0, Math.round(ms/1000)); const m=Math.floor(s/60), ss=s%60; return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; };
+
+  function savePrefs(){
+    localStorage.setItem('pomodoro_prefs', JSON.stringify({
+      work:+workM.value, brk:+breakM.value, long:+longM.value, tillLong:+tillLong.value,
+      notify:notify.checked, sound:sound.checked, vol:+vol.value, theme:document.body.classList.contains('theme-dark')?'dark':'light'
+    }));
+  }
+  function loadPrefs(){
+    try{ const p=JSON.parse(localStorage.getItem('pomodoro_prefs')||'{}');
+      if(p.work) workM.value=p.work; if(p.brk) breakM.value=p.brk; if(p.long) longM.value=p.long; if(p.tillLong) tillLong.value=p.tillLong;
+      if(typeof p.notify==='boolean') notify.checked=p.notify; if(typeof p.sound==='boolean') sound.checked=p.sound; if(p.vol!=null) vol.value=p.vol;
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const desired = p.theme || (prefersDark ? 'dark' : 'light');
+      setTheme(desired);
+    }catch{}
+  }
+
+  function setTitle(){ document.title = `${fmt(timeLeft())} • ${mode==='work'? 'Work' : 'Break'}`; }
+  function phaseMs(){ if(mode==='work') return (+workM.value)*60*1000; const longEvery=+tillLong.value; return (cycle>0 && cycle%longEvery===0)?(+longM.value)*60*1000 : (+breakM.value)*60*1000; }
+
+  function startPhase(newMode){ if(newMode) mode=newMode; totalMs=phaseMs(); target=Date.now()+totalMs; remaining=totalMs; modeEl.textContent = mode==='work'?'Work':'Break'; tick(true); run(); }
+  function run(){ if(running) return; running=true; clearInterval(ticker); ticker=setInterval(tick,250); }
+  function timeLeft(){ return running? Math.max(0, target-Date.now()) : remaining; }
+  function tick(initial=false){ const left=timeLeft(); timeEl.textContent=fmt(left); const p=1-(left/totalMs); barEl.style.width=`${Math.max(0,Math.min(1,p))*100}%`; setTitle(); if(left<=0){ clearInterval(ticker); running=false; if(mode==='work'){ cycle++; cyclesEl.textContent=cycle; } alertPhaseEnd(); startPhase(mode==='work'?'break':'work'); } }
+  function pause(){ if(!running) return; running=false; clearInterval(ticker); remaining=Math.max(0, target-Date.now()); }
+  function resume(){ if(running) return; running=true; target=Date.now()+remaining; run(); }
+  function reset(){ clearInterval(ticker); running=false; remaining=phaseMs(); totalMs=remaining; target=Date.now()+remaining; tick(true); }
+  function skip(){ if(mode==='break'){ startPhase('work'); } }
+
+  async function ensurePermission(){ if(!('Notification' in window)) { permEl.textContent='unsupported'; return; } let p=Notification.permission; permEl.textContent=p; if(p==='default'){ try{ p=await Notification.requestPermission(); permEl.textContent=p; }catch{} } }
+  function ping(){ if(!sound.checked) return; if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); const dur=0.5; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.value = mode==='work'?880:523; g.gain.value=+vol.value; o.connect(g).connect(audioCtx.destination); o.start(); setTimeout(()=>o.stop(), dur*1000); }
+  function notifyUser(){ if(!notify.checked) return; if(!('Notification' in window)) return; if(Notification.permission==='granted'){ const title = mode==='work'?'Work session complete':'Break over'; const body = mode==='work'?'Time for a short break.':'Back to focus!'; new Notification(title,{ body }); } }
+  function alertPhaseEnd(){ ping(); notifyUser(); }
+
+  function setTheme(kind){ document.body.classList.toggle('theme-dark', kind==='dark'); document.body.classList.toggle('theme-light', kind!=='dark'); themeIcon.textContent = kind==='dark' ? '🕷️' : '🍄'; savePrefs(); }
+  $('toggleTheme').addEventListener('click', ()=>{ const dark = !document.body.classList.contains('theme-dark') ? 'dark' : 'light'; setTheme(dark==='dark'?'dark':'light'); });
+
+  const spores = $('spores');
+  function addSpore(){ const i=document.createElement('i'); i.style.left = Math.random()*100+'%'; i.style.bottom = '-10px'; i.style.animationDuration = 6+Math.random()*6+'s'; spores.appendChild(i); setTimeout(()=>i.remove(), 13000); }
+  setInterval(()=>{ if(document.body.classList.contains('theme-light')) addSpore(); }, 700);
+
+  document.addEventListener('keydown', (e)=>{ if(e.target.tagName==='INPUT') return; if(e.code==='Space'){ e.preventDefault(); running?pause():resume(); } if(e.key==='r' || e.key==='R'){ reset(); } if(e.key==='s' || e.key==='S'){ skip(); } if(e.key==='t' || e.key==='T'){ $('toggleTheme').click(); } });
+
+  loadPrefs(); ensurePermission(); startPhase('work'); pause();
+  </script>
+</body>
+</html>
