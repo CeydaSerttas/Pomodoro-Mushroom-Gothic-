@@ -1,4 +1,4 @@
-# 🍄 Pomodoro Timer — Mushroom Grove & Gothic Web Themes
+# 🍄 Pomodoro Timer — Mushroom Grove & 🕷️ Gothic Web Themes
 
 A **feature-rich Pomodoro timer** with two immersive themes:
 
