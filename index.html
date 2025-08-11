@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="no-js">
+<html lang="tr" class="no-js">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -46,7 +46,6 @@
     .btn{background:transparent;border:var(--border);color:var(--text);padding:10px 14px;border-radius:14px;font-weight:800;cursor:pointer}
     .btn:hover{box-shadow:0 0 0 3px rgba(0,0,0,.05) inset}
 
-    /* Cards */
     .card{background:var(--card);backdrop-filter: blur(12px); border:var(--border);box-shadow:var(--shadow);border-radius:var(--radius);padding:24px; position:relative; z-index:3}
     .timer-face{display:grid;gap:16px;place-items:center}
 
@@ -177,10 +176,9 @@
           <div class="time" id="time">25:00</div>
           <div class="progress"><div class="bar" id="bar"></div></div>
           <div class="controls">
-            <button id="start" class="btn primary">Start</button>
-            <button id="pause" class="btn">Pause / Resume</button>
+            <button id="start" class="btn primary">Start / Pause / Resume</button>
             <button id="reset" class="btn danger">Reset</button>
-            <button id="skip" class="btn">Skip Break</button>
+            <button id="skip" class="btn">Skip</button>
           </div>
         </div>
       </section>
@@ -199,7 +197,7 @@
     </div>
 
     <p class="meta" style="justify-content:flex-start;margin-top:10px; position:relative; z-index:3">
-      Shortcuts: <strong>Space</strong> = Pause/Resume, <strong>R</strong> = Reset, <strong>S</strong> = Skip, <strong>T</strong> = Theme
+      Shortcuts: <strong>Space</strong> = Toggle, <strong>R</strong> = Reset, <strong>S</strong> = Skip, <strong>T</strong> = Theme
     </p>
 
     <div class="grove" aria-hidden="true">
@@ -259,60 +257,209 @@
   <script>
   const $ = (id)=>document.getElementById(id);
   const timeEl = $('time'), modeEl = $('mode'), barEl = $('bar');
-  const startBtn = $('start'), pauseBtn = $('pause'), resetBtn = $('reset'), skipBtn = $('skip');
+  const startBtn = $('start'), resetBtn = $('reset'), skipBtn = $('skip');
   const workM = $('workM'), breakM = $('breakM'), longM = $('longM'), tillLong = $('tillLong');
   const notify = $('notify'), sound = $('sound'), vol = $('vol');
   const cyclesEl = $('cycles'), permEl = $('perm');
   const toggleThemeBtn = $('toggleTheme');
   const themeIcon = $('themeIcon');
 
-  let audioCtx, ticker, running=false, mode='work', cycle=0, target=0, totalMs=0, remaining=0;
+  let audioCtx, ticker = null;
+  let running = false, mode = 'work';
+  let cycle = 0, target = 0, totalMs = 0, remaining = 0;
 
+  const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+  const minutesToMs = (m) => clamp(+m || 0, 1, 600) * 60 * 1000; 
   const fmt = (ms)=>{ const s=Math.max(0, Math.round(ms/1000)); const m=Math.floor(s/60), ss=s%60; return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; };
 
   function savePrefs(){
-    localStorage.setItem('pomodoro_prefs', JSON.stringify({
-      work:+workM.value, brk:+breakM.value, long:+longM.value, tillLong:+tillLong.value,
-      notify:notify.checked, sound:sound.checked, vol:+vol.value, theme:document.body.classList.contains('theme-dark')?'dark':'light'
-    }));
+    try{
+      localStorage.setItem('pomodoro_prefs', JSON.stringify({
+        work:+workM.value, brk:+breakM.value, long:+longM.value, tillLong:+tillLong.value,
+        notify:notify.checked, sound:sound.checked, vol:+vol.value,
+        theme:document.body.classList.contains('theme-dark')?'dark':'light',
+        cycles:cycle
+      }));
+    }catch{ }
   }
+
   function loadPrefs(){
-    try{ const p=JSON.parse(localStorage.getItem('pomodoro_prefs')||'{}');
-      if(p.work) workM.value=p.work; if(p.brk) breakM.value=p.brk; if(p.long) longM.value=p.long; if(p.tillLong) tillLong.value=p.tillLong;
-      if(typeof p.notify==='boolean') notify.checked=p.notify; if(typeof p.sound==='boolean') sound.checked=p.sound; if(p.vol!=null) vol.value=p.vol;
+    try{ 
+      const p=JSON.parse(localStorage.getItem('pomodoro_prefs')||'{}');
+      if(p.work) workM.value=p.work; 
+      if(p.brk) breakM.value=p.brk; 
+      if(p.long) longM.value=p.long; 
+      if(p.tillLong) tillLong.value=p.tillLong;
+      if(typeof p.notify==='boolean') notify.checked=p.notify; 
+      if(typeof p.sound==='boolean') sound.checked=p.sound; 
+      if(p.vol!=null) vol.value=p.vol;
+      if(p.cycles) { cycle = p.cycles; cyclesEl.textContent = cycle; }
       const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const desired = p.theme || (prefersDark ? 'dark' : 'light');
-      setTheme(desired);
+      setTheme(p.theme || (prefersDark ? 'dark' : 'light'));
     }catch{}
   }
 
-  function setTitle(){ document.title = `${fmt(timeLeft())} • ${mode==='work'? 'Work' : 'Break'}`; }
-  function phaseMs(){ if(mode==='work') return (+workM.value)*60*1000; const longEvery=+tillLong.value; return (cycle>0 && cycle%longEvery===0)?(+longM.value)*60*1000 : (+breakM.value)*60*1000; }
+  function setTitle(){ document.title = `${fmt(timeLeft())} • ${mode==='work'? 'Work' : 'Break'} - Pomodoro`; }
 
-  function startPhase(newMode){ if(newMode) mode=newMode; totalMs=phaseMs(); target=Date.now()+totalMs; remaining=totalMs; modeEl.textContent = mode==='work'?'Work':'Break'; tick(true); run(); }
-  function run(){ if(running) return; running=true; clearInterval(ticker); ticker=setInterval(tick,250); }
-  function timeLeft(){ return running? Math.max(0, target-Date.now()) : remaining; }
-  function tick(initial=false){ const left=timeLeft(); timeEl.textContent=fmt(left); const p=1-(left/totalMs); barEl.style.width=`${Math.max(0,Math.min(1,p))*100}%`; setTitle(); if(left<=0){ clearInterval(ticker); running=false; if(mode==='work'){ cycle++; cyclesEl.textContent=cycle; } alertPhaseEnd(); startPhase(mode==='work'?'break':'work'); } }
-  function pause(){ if(!running) return; running=false; clearInterval(ticker); remaining=Math.max(0, target-Date.now()); }
-  function resume(){ if(running) return; running=true; target=Date.now()+remaining; run(); }
-  function reset(){ clearInterval(ticker); running=false; remaining=phaseMs(); totalMs=remaining; target=Date.now()+remaining; tick(true); }
-  function skip(){ if(mode==='break'){ startPhase('work'); } }
+  function currentPhaseMs(){ 
+    if(mode==='work') return minutesToMs(workM.value);
+    const longEvery = clamp(+tillLong.value || 4, 2, 12);
+    return (cycle>0 && cycle%longEvery===0) ? minutesToMs(longM.value) : minutesToMs(breakM.value); 
+  }
 
-  async function ensurePermission(){ if(!('Notification' in window)) { permEl.textContent='unsupported'; return; } let p=Notification.permission; permEl.textContent=p; if(p==='default'){ try{ p=await Notification.requestPermission(); permEl.textContent=p; }catch{} } }
-  function ping(){ if(!sound.checked) return; if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); const dur=0.5; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.value = mode==='work'?880:523; g.gain.value=+vol.value; o.connect(g).connect(audioCtx.destination); o.start(); setTimeout(()=>o.stop(), dur*1000); }
-  function notifyUser(){ if(!notify.checked) return; if(!('Notification' in window)) return; if(Notification.permission==='granted'){ const title = mode==='work'?'Work session complete':'Break over'; const body = mode==='work'?'Time for a short break.':'Back to focus!'; new Notification(title,{ body }); } }
+  function startPhase(nextMode){
+    if(nextMode) mode = nextMode;
+    totalMs = currentPhaseMs();
+    remaining = totalMs;
+    target = Date.now()+totalMs;
+    modeEl.textContent = mode==='work' ? 'Work' : 'Break';
+    skipBtn.style.display = mode==='break' ? 'inline-block' : 'none';
+    tick(true);
+    run();
+  }
+
+  function run(){
+    if(running) return;
+    running = true;
+    clearInterval(ticker);
+    ticker = setInterval(tick, 250);
+    updateStartLabel();
+  }
+
+  function timeLeft(){ return running ? Math.max(0, target-Date.now()) : remaining; }
+
+  function tick(initial=false){
+    const left = timeLeft();
+    timeEl.textContent = fmt(left);
+    const p=1-(left/totalMs || 1);
+    barEl.style.width = `${Math.max(0,Math.min(1,p))*100}%`;
+    setTitle();
+
+    if(left<=0){
+      clearInterval(ticker);
+      running=false;
+      if(mode==='work'){ cycle++; cyclesEl.textContent=cycle; savePrefs(); }
+      alertPhaseEnd();
+      setTimeout(()=>startPhase(mode==='work' ? 'break' : 'work'), 500);
+      updateStartLabel();
+    }
+  }
+
+  function pause(){
+    if(!running) return;
+    running=false;
+    clearInterval(ticker);
+    remaining = Math.max(0, target-Date.now());
+    updateStartLabel();
+  }
+
+  function resume(){
+    if(running) return;
+    target = Date.now()+remaining;
+    run();
+  }
+
+  function reset(){
+    clearInterval(ticker);
+    running=false;
+    totalMs = currentPhaseMs();
+    remaining = totalMs;
+    target = Date.now()+remaining;
+    skipBtn.style.display = mode==='break' ? 'inline-block' : 'none';
+    tick(true);
+    updateStartLabel();
+  }
+
+  function skip(){
+    clearInterval(ticker);
+    running=false;
+    if(mode==='work'){ cycle++; cyclesEl.textContent=cycle; savePrefs(); startPhase('break'); }
+    else { startPhase('work'); }
+  }
+
+  function updateStartLabel(){
+    startBtn.textContent = running ? 'Pause' : (remaining===currentPhaseMs() ? 'Start' : 'Resume');
+  }
+
+  async function ensurePermission(){
+    if(!('Notification' in window)) { permEl.textContent='unsupported'; return; }
+    let p = Notification.permission; permEl.textContent=p;
+    if(p==='default'){
+      try{ p = await Notification.requestPermission(); permEl.textContent=p; }catch{ permEl.textContent='denied'; }
+    }
+  }
+
+  function ping(){
+    if(!sound.checked) return;
+    try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); }catch{ return; }
+    const dur=0.5; const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+    o.type='sine'; o.frequency.value = mode==='work' ? 880 : 523; g.gain.value=+vol.value;
+    o.connect(g).connect(audioCtx.destination); o.start(); setTimeout(()=>{ try{o.stop();}catch{} }, dur*1000);
+  }
+
+  function notifyUser(){
+    if(!notify.checked || !('Notification' in window)) return;
+    if(Notification.permission==='granted'){
+      const title = mode==='work' ? 'Work complete! 🍄' : 'Break over! 🕷️';
+      const body = mode==='work' ? 'Time for a break.' : 'Back to work!';
+      const n = new Notification(title, { body, tag: 'pomodoro' });
+      setTimeout(()=>n.close(), 4000);
+    }
+  }
+
   function alertPhaseEnd(){ ping(); notifyUser(); }
 
-  function setTheme(kind){ document.body.classList.toggle('theme-dark', kind==='dark'); document.body.classList.toggle('theme-light', kind!=='dark'); themeIcon.textContent = kind==='dark' ? '🕷️' : '🍄'; savePrefs(); }
-  $('toggleTheme').addEventListener('click', ()=>{ const dark = !document.body.classList.contains('theme-dark') ? 'dark' : 'light'; setTheme(dark==='dark'?'dark':'light'); });
+  function setTheme(kind){
+    document.body.classList.toggle('theme-dark', kind==='dark');
+    document.body.classList.toggle('theme-light', kind!=='dark');
+    themeIcon.textContent = kind==='dark' ? '🕷️' : '🍄';
+    savePrefs();
+    updateSpores();
+  }
+
+  // ====== Events ======
+  startBtn.addEventListener('click', () => {
+    if(running) pause();
+    else if(remaining===currentPhaseMs()) startPhase(mode);
+    else resume();
+  });
+
+  resetBtn.addEventListener('click', reset);
+  skipBtn.addEventListener('click', skip);
+
+  ;[workM, breakM, longM, tillLong].forEach(input => {
+    input.addEventListener('change', () => {
+      savePrefs();
+      reset();
+    });
+  });
+
+  ;[notify, sound].forEach(input => input.addEventListener('change', savePrefs));
+  vol.addEventListener('input', savePrefs);
+
+  toggleThemeBtn.addEventListener('click', () => { 
+    const isDark = document.body.classList.contains('theme-dark');
+    setTheme(isDark ? 'light' : 'dark'); 
+  });
 
   const spores = $('spores');
+  let sporeInterval;
   function addSpore(){ const i=document.createElement('i'); i.style.left = Math.random()*100+'%'; i.style.bottom = '-10px'; i.style.animationDuration = 6+Math.random()*6+'s'; spores.appendChild(i); setTimeout(()=>i.remove(), 13000); }
-  setInterval(()=>{ if(document.body.classList.contains('theme-light')) addSpore(); }, 700);
+  function updateSpores(){ clearInterval(sporeInterval); if(document.body.classList.contains('theme-light')) sporeInterval = setInterval(addSpore, 700); }
 
-  document.addEventListener('keydown', (e)=>{ if(e.target.tagName==='INPUT') return; if(e.code==='Space'){ e.preventDefault(); running?pause():resume(); } if(e.key==='r' || e.key==='R'){ reset(); } if(e.key==='s' || e.key==='S'){ skip(); } if(e.key==='t' || e.key==='T'){ $('toggleTheme').click(); } });
+  document.addEventListener('keydown', (e) => { 
+    if(e.target && (e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA')) return; 
+    switch(e.code){
+      case 'Space': e.preventDefault(); startBtn.click(); break;
+      case 'KeyR': e.preventDefault(); reset(); break;
+      case 'KeyS': e.preventDefault(); skip(); break;
+      case 'KeyT': e.preventDefault(); toggleThemeBtn.click(); break;
+    }
+  });
 
-  loadPrefs(); ensurePermission(); startPhase('work'); pause();
+  loadPrefs();
+  ensurePermission();
+  reset();
   </script>
 </body>
 </html>
